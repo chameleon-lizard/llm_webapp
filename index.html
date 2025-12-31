@@ -487,12 +487,6 @@
                         Do Sample
                     </label>
                 </div>
-                <div class="setting-group">
-                    <label for="streamResponse">
-                        <input type="checkbox" id="streamResponse" checked style="width: auto; margin-right: 0.5rem;">
-                        Stream Response
-                    </label>
-                </div>
             </div>
         </div>
     </div>
@@ -824,7 +818,6 @@
                 const topP = parseFloat(document.getElementById('topP').value);
                 const repetitionPenalty = parseFloat(document.getElementById('repetitionPenalty').value);
                 const doSample = document.getElementById('doSample').checked;
-                const streamResponse = document.getElementById('streamResponse').checked;
 
                 // Build messages array with system prompt
                 const messages = [];
@@ -843,8 +836,7 @@
                     temperature: temperature,
                     top_p: topP,
                     repetition_penalty: repetitionPenalty,
-                    do_sample: doSample,
-                    stream: streamResponse
+                    do_sample: doSample
                 };
 
                 const response = await fetch(endpoint, {
@@ -858,21 +850,16 @@
                     throw new Error(`API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
                 }
 
-                if (streamResponse && response.body) {
-                    // Handle streaming response
-                    await handleStreamingResponse(response);
-                } else {
-                    // Handle regular response
-                    const data = await response.json();
-                    const assistantMessage = data.choices[0].message.content;
+                // Handle response
+                const data = await response.json();
+                const assistantMessage = data.choices[0].message.content;
 
-                    // Add assistant response to UI and history
-                    addMessage('assistant', assistantMessage);
-                    conversationHistory.push({
-                        role: 'assistant',
-                        content: assistantMessage
-                    });
-                }
+                // Add assistant response to UI and history
+                addMessage('assistant', assistantMessage);
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: assistantMessage
+                });
 
             } catch (error) {
                 addSystemMessage(`Error: ${error.message}`);
@@ -882,60 +869,6 @@
                 isProcessing = false;
                 sendBtn.disabled = false;
                 sendBtn.textContent = originalText;
-            }
-        }
-
-        async function handleStreamingResponse(response) {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedContent = '';
-            let messageDiv = null;
-
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
-
-                            if (data === '[DONE]') {
-                                continue;
-                            }
-
-                            try {
-                                const parsed = JSON.parse(data);
-                                const content = parsed.choices?.[0]?.delta?.content || '';
-
-                                if (content) {
-                                    accumulatedContent += content;
-
-                                    if (!messageDiv) {
-                                        messageDiv = addMessage('assistant', accumulatedContent);
-                                    } else {
-                                        updateMessage(messageDiv, accumulatedContent);
-                                    }
-                                }
-                            } catch (e) {
-                                // Skip malformed JSON
-                            }
-                        }
-                    }
-                }
-
-                // Add final message to history
-                if (accumulatedContent) {
-                    conversationHistory.push({
-                        role: 'assistant',
-                        content: accumulatedContent
-                    });
-                }
-            } catch (error) {
-                throw new Error(`Streaming error: ${error.message}`);
             }
         }
 
@@ -965,7 +898,6 @@
             const savedTopP = localStorage.getItem('llm_topP');
             const savedRepetitionPenalty = localStorage.getItem('llm_repetitionPenalty');
             const savedDoSample = localStorage.getItem('llm_doSample');
-            const savedStreamResponse = localStorage.getItem('llm_streamResponse');
 
             if (savedEndpoint) document.getElementById('endpoint').value = savedEndpoint;
             if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
@@ -975,7 +907,6 @@
             if (savedTopP) document.getElementById('topP').value = savedTopP;
             if (savedRepetitionPenalty) document.getElementById('repetitionPenalty').value = savedRepetitionPenalty;
             if (savedDoSample !== null) document.getElementById('doSample').checked = savedDoSample === 'true';
-            if (savedStreamResponse !== null) document.getElementById('streamResponse').checked = savedStreamResponse === 'true';
 
             addSystemMessage('Welcome! Configure your endpoint to start chatting.');
         });
@@ -1011,10 +942,6 @@
 
         document.getElementById('doSample').addEventListener('change', (e) => {
             localStorage.setItem('llm_doSample', e.target.checked);
-        });
-
-        document.getElementById('streamResponse').addEventListener('change', (e) => {
-            localStorage.setItem('llm_streamResponse', e.target.checked);
         });
     </script>
 </body>
