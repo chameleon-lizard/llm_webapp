@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Chat</title>
+
+    <!-- Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
+    <!-- Math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Syntax highlighting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/es/highlight.min.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -47,6 +60,68 @@
             border: none;
             border-radius: 4px;
             font-size: 0.9rem;
+        }
+
+        .advanced-settings {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+
+        .advanced-settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .advanced-settings-header h3 {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .advanced-settings-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .advanced-settings-content.hidden {
+            display: none;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .setting-group label {
+            font-size: 0.85rem;
+        }
+
+        .setting-group input, .setting-group textarea {
+            padding: 0.4rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .setting-group textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        .toggle-icon {
+            transition: transform 0.3s;
+        }
+
+        .toggle-icon.open {
+            transform: rotate(180deg);
         }
 
         #endpoint {
@@ -108,11 +183,134 @@
         }
 
         .message pre {
-            background: rgba(0,0,0,0.1);
-            padding: 0.5rem;
+            background: #1e1e1e;
+            padding: 1rem;
             border-radius: 4px;
             overflow-x: auto;
             margin: 0.5rem 0;
+        }
+
+        .message.user pre {
+            background: rgba(0,0,0,0.3);
+        }
+
+        .message pre code {
+            background: transparent;
+            padding: 0;
+            border-radius: 0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .message code {
+            background: rgba(0,0,0,0.1);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .message.user code {
+            background: rgba(0,0,0,0.2);
+        }
+
+        /* Markdown styles */
+        .message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {
+            margin: 0.8rem 0 0.5rem 0;
+            font-weight: 600;
+        }
+
+        .message h1 { font-size: 1.6em; border-bottom: 2px solid rgba(0,0,0,0.1); padding-bottom: 0.3em; }
+        .message h2 { font-size: 1.4em; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.3em; }
+        .message h3 { font-size: 1.2em; }
+        .message h4 { font-size: 1.1em; }
+        .message h5 { font-size: 1em; }
+        .message h6 { font-size: 0.9em; }
+
+        .message ul, .message ol {
+            margin: 0.5rem 0;
+            padding-left: 2rem;
+        }
+
+        .message li {
+            margin: 0.3rem 0;
+        }
+
+        .message blockquote {
+            border-left: 4px solid rgba(0,0,0,0.2);
+            padding-left: 1rem;
+            margin: 0.5rem 0;
+            color: rgba(0,0,0,0.7);
+            font-style: italic;
+        }
+
+        .message.user blockquote {
+            border-left-color: rgba(255,255,255,0.4);
+            color: rgba(255,255,255,0.9);
+        }
+
+        .message a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .message a:hover {
+            text-decoration: underline;
+        }
+
+        .message.user a {
+            color: #b3d9ff;
+        }
+
+        .message table {
+            border-collapse: collapse;
+            margin: 0.5rem 0;
+            width: 100%;
+        }
+
+        .message table th,
+        .message table td {
+            border: 1px solid rgba(0,0,0,0.2);
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        .message table th {
+            background: rgba(0,0,0,0.05);
+            font-weight: 600;
+        }
+
+        .message.user table th,
+        .message.user table td {
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        .message.user table th {
+            background: rgba(0,0,0,0.2);
+        }
+
+        .message hr {
+            border: none;
+            border-top: 2px solid rgba(0,0,0,0.1);
+            margin: 1rem 0;
+        }
+
+        .message img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+        }
+
+        /* Math formulas */
+        .katex {
+            font-size: 1.1em;
+        }
+
+        .katex-display {
+            margin: 1rem 0;
+            overflow-x: auto;
+            overflow-y: hidden;
         }
 
         .attached-files {
@@ -258,6 +456,39 @@
                 <input type="text" id="model" placeholder="gpt-3.5-turbo" value="gpt-3.5-turbo">
             </label>
         </div>
+
+        <div class="advanced-settings">
+            <div class="advanced-settings-header" onclick="toggleAdvancedSettings()">
+                <h3>Advanced Settings</h3>
+                <span class="toggle-icon" id="toggleIcon">▼</span>
+            </div>
+            <div class="advanced-settings-content hidden" id="advancedContent">
+                <div class="setting-group" style="grid-column: 1 / -1;">
+                    <label for="systemPrompt">System Prompt:</label>
+                    <textarea id="systemPrompt" placeholder="Enter system prompt...">GigaChat – это нейросетевая модель искусственного интеллекта. Он создан компанией Sber в России в 2023 году.</textarea>
+                    <button class="btn-secondary" onclick="loadSystemPromptFromFile()" style="margin-top: 0.5rem;">Load from JSON File</button>
+                    <input type="file" id="systemPromptFile" accept=".json" style="display: none;" onchange="handleSystemPromptFile(event)">
+                </div>
+                <div class="setting-group">
+                    <label for="temperature">Temperature:</label>
+                    <input type="number" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                </div>
+                <div class="setting-group">
+                    <label for="topP">Top P:</label>
+                    <input type="number" id="topP" min="0" max="1" step="0.1" value="0.3">
+                </div>
+                <div class="setting-group">
+                    <label for="repetitionPenalty">Repetition Penalty:</label>
+                    <input type="number" id="repetitionPenalty" min="1" max="2" step="0.1" value="1.1">
+                </div>
+                <div class="setting-group">
+                    <label for="doSample">
+                        <input type="checkbox" id="doSample" checked style="width: auto; margin-right: 0.5rem;">
+                        Do Sample
+                    </label>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="chat-container">
@@ -284,16 +515,110 @@
         let attachedFiles = [];
         let isProcessing = false;
 
+        function toggleAdvancedSettings() {
+            const content = document.getElementById('advancedContent');
+            const icon = document.getElementById('toggleIcon');
+            content.classList.toggle('hidden');
+            icon.classList.toggle('open');
+        }
+
+        function loadSystemPromptFromFile() {
+            document.getElementById('systemPromptFile').click();
+        }
+
+        async function handleSystemPromptFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                if (data.content) {
+                    document.getElementById('systemPrompt').value = data.content;
+                    localStorage.setItem('llm_systemPrompt', data.content);
+                    addSystemMessage(`System prompt loaded from ${file.name}`);
+                } else {
+                    addSystemMessage('Error: JSON file must contain a "content" field');
+                }
+            } catch (error) {
+                addSystemMessage(`Error loading system prompt: ${error.message}`);
+            }
+
+            event.target.value = '';
+        }
+
         function addMessage(role, content, files = []) {
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${role}`;
 
-            // Format content with basic markdown-like rendering
-            let formattedContent = content
-                .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre>$2</pre>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                .replace(/\n/g, '<br>');
+            // Step 1: Extract and protect math expressions
+            const mathExpressions = [];
+            let processedContent = content;
+
+            // Extract display math ($$...$$)
+            processedContent = processedContent.replace(/\$\$([\s\S]+?)\$\$/g, (match, math) => {
+                const index = mathExpressions.length;
+                mathExpressions.push({ type: 'display', content: math });
+                return `___MATH_DISPLAY_${index}___`;
+            });
+
+            // Extract inline math ($...$)
+            processedContent = processedContent.replace(/\$([^\n]+?)\$/g, (match, math) => {
+                const index = mathExpressions.length;
+                mathExpressions.push({ type: 'inline', content: math });
+                return `___MATH_INLINE_${index}___`;
+            });
+
+            // Extract LaTeX brackets \[...\] and \(...\)
+            processedContent = processedContent.replace(/\\\[([\s\S]+?)\\\]/g, (match, math) => {
+                const index = mathExpressions.length;
+                mathExpressions.push({ type: 'display', content: math });
+                return `___MATH_DISPLAY_${index}___`;
+            });
+
+            processedContent = processedContent.replace(/\\\(([\s\S]+?)\\\)/g, (match, math) => {
+                const index = mathExpressions.length;
+                mathExpressions.push({ type: 'inline', content: math });
+                return `___MATH_INLINE_${index}___`;
+            });
+
+            // Step 2: Configure and render markdown
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(code, { language: lang }).value;
+                        } catch (err) {}
+                    }
+                    return hljs.highlightAuto(code).value;
+                }
+            });
+
+            let formattedContent = marked.parse(processedContent);
+
+            // Step 3: Restore and render math expressions
+            mathExpressions.forEach((math, index) => {
+                const placeholder = math.type === 'display'
+                    ? `___MATH_DISPLAY_${index}___`
+                    : `___MATH_INLINE_${index}___`;
+
+                try {
+                    const rendered = katex.renderToString(math.content, {
+                        displayMode: math.type === 'display',
+                        throwOnError: false,
+                        output: 'html'
+                    });
+                    formattedContent = formattedContent.replace(placeholder, rendered);
+                } catch (err) {
+                    console.error('KaTeX rendering error:', err);
+                    formattedContent = formattedContent.replace(placeholder,
+                        `<span style="color: red;">Math Error: ${math.content}</span>`);
+                }
+            });
 
             messageDiv.innerHTML = formattedContent;
 
@@ -458,14 +783,37 @@
                     headers['Authorization'] = `Bearer ${apiKey}`;
                 }
 
+                // Get advanced settings
+                const systemPrompt = document.getElementById('systemPrompt').value.trim();
+                const temperature = parseFloat(document.getElementById('temperature').value);
+                const topP = parseFloat(document.getElementById('topP').value);
+                const repetitionPenalty = parseFloat(document.getElementById('repetitionPenalty').value);
+                const doSample = document.getElementById('doSample').checked;
+
+                // Build messages array with system prompt
+                const messages = [];
+                if (systemPrompt) {
+                    messages.push({
+                        role: 'system',
+                        content: systemPrompt
+                    });
+                }
+                messages.push(...conversationHistory);
+
+                // Build request body
+                const requestBody = {
+                    model: model,
+                    messages: messages,
+                    temperature: temperature,
+                    top_p: topP,
+                    repetition_penalty: repetitionPenalty,
+                    do_sample: doSample
+                };
+
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({
-                        model: model,
-                        messages: conversationHistory,
-                        temperature: 0.7
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
@@ -515,10 +863,20 @@
             const savedEndpoint = localStorage.getItem('llm_endpoint');
             const savedApiKey = localStorage.getItem('llm_apiKey');
             const savedModel = localStorage.getItem('llm_model');
+            const savedSystemPrompt = localStorage.getItem('llm_systemPrompt');
+            const savedTemperature = localStorage.getItem('llm_temperature');
+            const savedTopP = localStorage.getItem('llm_topP');
+            const savedRepetitionPenalty = localStorage.getItem('llm_repetitionPenalty');
+            const savedDoSample = localStorage.getItem('llm_doSample');
 
             if (savedEndpoint) document.getElementById('endpoint').value = savedEndpoint;
             if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
             if (savedModel) document.getElementById('model').value = savedModel;
+            if (savedSystemPrompt) document.getElementById('systemPrompt').value = savedSystemPrompt;
+            if (savedTemperature) document.getElementById('temperature').value = savedTemperature;
+            if (savedTopP) document.getElementById('topP').value = savedTopP;
+            if (savedRepetitionPenalty) document.getElementById('repetitionPenalty').value = savedRepetitionPenalty;
+            if (savedDoSample !== null) document.getElementById('doSample').checked = savedDoSample === 'true';
 
             addSystemMessage('Welcome! Configure your endpoint to start chatting.');
         });
@@ -534,6 +892,26 @@
 
         document.getElementById('model').addEventListener('change', (e) => {
             localStorage.setItem('llm_model', e.target.value);
+        });
+
+        document.getElementById('systemPrompt').addEventListener('change', (e) => {
+            localStorage.setItem('llm_systemPrompt', e.target.value);
+        });
+
+        document.getElementById('temperature').addEventListener('change', (e) => {
+            localStorage.setItem('llm_temperature', e.target.value);
+        });
+
+        document.getElementById('topP').addEventListener('change', (e) => {
+            localStorage.setItem('llm_topP', e.target.value);
+        });
+
+        document.getElementById('repetitionPenalty').addEventListener('change', (e) => {
+            localStorage.setItem('llm_repetitionPenalty', e.target.value);
+        });
+
+        document.getElementById('doSample').addEventListener('change', (e) => {
+            localStorage.setItem('llm_doSample', e.target.checked);
         });
     </script>
 </body>
