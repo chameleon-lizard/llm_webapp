@@ -487,6 +487,12 @@
                         Do Sample
                     </label>
                 </div>
+                <div class="setting-group">
+                    <label for="streamResponse">
+                        <input type="checkbox" id="streamResponse" checked style="width: auto; margin-right: 0.5rem;">
+                        Stream Response
+                    </label>
+                </div>
             </div>
         </div>
     </div>
@@ -548,40 +554,36 @@
             event.target.value = '';
         }
 
-        function addMessage(role, content, files = []) {
-            const messagesDiv = document.getElementById('messages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${role}`;
-
+        function renderContent(content) {
             // Step 1: Extract and protect math expressions
             const mathExpressions = [];
             let processedContent = content;
 
-            // Extract display math ($$...$$)
+            // Extract display math ($$...$$) - must be before inline
             processedContent = processedContent.replace(/\$\$([\s\S]+?)\$\$/g, (match, math) => {
                 const index = mathExpressions.length;
-                mathExpressions.push({ type: 'display', content: math });
-                return `___MATH_DISPLAY_${index}___`;
+                mathExpressions.push({ type: 'display', content: math.trim() });
+                return `<span class="math-placeholder" data-index="${index}" data-type="display"></span>`;
             });
 
             // Extract inline math ($...$)
-            processedContent = processedContent.replace(/\$([^\n]+?)\$/g, (match, math) => {
+            processedContent = processedContent.replace(/\$([^\$\n]+?)\$/g, (match, math) => {
                 const index = mathExpressions.length;
-                mathExpressions.push({ type: 'inline', content: math });
-                return `___MATH_INLINE_${index}___`;
+                mathExpressions.push({ type: 'inline', content: math.trim() });
+                return `<span class="math-placeholder" data-index="${index}" data-type="inline"></span>`;
             });
 
             // Extract LaTeX brackets \[...\] and \(...\)
             processedContent = processedContent.replace(/\\\[([\s\S]+?)\\\]/g, (match, math) => {
                 const index = mathExpressions.length;
-                mathExpressions.push({ type: 'display', content: math });
-                return `___MATH_DISPLAY_${index}___`;
+                mathExpressions.push({ type: 'display', content: math.trim() });
+                return `<span class="math-placeholder" data-index="${index}" data-type="display"></span>`;
             });
 
             processedContent = processedContent.replace(/\\\(([\s\S]+?)\\\)/g, (match, math) => {
                 const index = mathExpressions.length;
-                mathExpressions.push({ type: 'inline', content: math });
-                return `___MATH_INLINE_${index}___`;
+                mathExpressions.push({ type: 'inline', content: math.trim() });
+                return `<span class="math-placeholder" data-index="${index}" data-type="inline"></span>`;
             });
 
             // Step 2: Configure and render markdown
@@ -598,29 +600,42 @@
                 }
             });
 
-            let formattedContent = marked.parse(processedContent);
+            let html = marked.parse(processedContent);
 
-            // Step 3: Restore and render math expressions
-            mathExpressions.forEach((math, index) => {
-                const placeholder = math.type === 'display'
-                    ? `___MATH_DISPLAY_${index}___`
-                    : `___MATH_INLINE_${index}___`;
+            // Step 3: Create temp div to render math
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
 
-                try {
-                    const rendered = katex.renderToString(math.content, {
-                        displayMode: math.type === 'display',
-                        throwOnError: false,
-                        output: 'html'
-                    });
-                    formattedContent = formattedContent.replace(placeholder, rendered);
-                } catch (err) {
-                    console.error('KaTeX rendering error:', err);
-                    formattedContent = formattedContent.replace(placeholder,
-                        `<span style="color: red;">Math Error: ${math.content}</span>`);
+            // Step 4: Find and replace math placeholders
+            const placeholders = tempDiv.querySelectorAll('.math-placeholder');
+            placeholders.forEach(placeholder => {
+                const index = parseInt(placeholder.getAttribute('data-index'));
+                const math = mathExpressions[index];
+
+                if (math) {
+                    try {
+                        const rendered = katex.renderToString(math.content, {
+                            displayMode: math.type === 'display',
+                            throwOnError: false,
+                            output: 'html'
+                        });
+                        placeholder.outerHTML = rendered;
+                    } catch (err) {
+                        console.error('KaTeX rendering error:', err, 'Formula:', math.content);
+                        placeholder.outerHTML = `<span style="color: red;">Math Error: ${math.content}</span>`;
+                    }
                 }
             });
 
-            messageDiv.innerHTML = formattedContent;
+            return tempDiv.innerHTML;
+        }
+
+        function addMessage(role, content, files = []) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            messageDiv.innerHTML = renderContent(content);
 
             if (files.length > 0) {
                 const filesDiv = document.createElement('div');
@@ -630,6 +645,26 @@
             }
 
             messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            return messageDiv;
+        }
+
+        function updateMessage(messageDiv, content) {
+            // Remove file attachments temporarily
+            const filesDiv = messageDiv.querySelector('.attached-files');
+            if (filesDiv) {
+                filesDiv.remove();
+            }
+
+            messageDiv.innerHTML = renderContent(content);
+
+            // Re-add file attachments if they existed
+            if (filesDiv) {
+                messageDiv.appendChild(filesDiv);
+            }
+
+            const messagesDiv = document.getElementById('messages');
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
@@ -789,6 +824,7 @@
                 const topP = parseFloat(document.getElementById('topP').value);
                 const repetitionPenalty = parseFloat(document.getElementById('repetitionPenalty').value);
                 const doSample = document.getElementById('doSample').checked;
+                const streamResponse = document.getElementById('streamResponse').checked;
 
                 // Build messages array with system prompt
                 const messages = [];
@@ -807,7 +843,8 @@
                     temperature: temperature,
                     top_p: topP,
                     repetition_penalty: repetitionPenalty,
-                    do_sample: doSample
+                    do_sample: doSample,
+                    stream: streamResponse
                 };
 
                 const response = await fetch(endpoint, {
@@ -821,15 +858,21 @@
                     throw new Error(`API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
                 }
 
-                const data = await response.json();
-                const assistantMessage = data.choices[0].message.content;
+                if (streamResponse && response.body) {
+                    // Handle streaming response
+                    await handleStreamingResponse(response);
+                } else {
+                    // Handle regular response
+                    const data = await response.json();
+                    const assistantMessage = data.choices[0].message.content;
 
-                // Add assistant response to UI and history
-                addMessage('assistant', assistantMessage);
-                conversationHistory.push({
-                    role: 'assistant',
-                    content: assistantMessage
-                });
+                    // Add assistant response to UI and history
+                    addMessage('assistant', assistantMessage);
+                    conversationHistory.push({
+                        role: 'assistant',
+                        content: assistantMessage
+                    });
+                }
 
             } catch (error) {
                 addSystemMessage(`Error: ${error.message}`);
@@ -839,6 +882,60 @@
                 isProcessing = false;
                 sendBtn.disabled = false;
                 sendBtn.textContent = originalText;
+            }
+        }
+
+        async function handleStreamingResponse(response) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedContent = '';
+            let messageDiv = null;
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+
+                            if (data === '[DONE]') {
+                                continue;
+                            }
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                const content = parsed.choices?.[0]?.delta?.content || '';
+
+                                if (content) {
+                                    accumulatedContent += content;
+
+                                    if (!messageDiv) {
+                                        messageDiv = addMessage('assistant', accumulatedContent);
+                                    } else {
+                                        updateMessage(messageDiv, accumulatedContent);
+                                    }
+                                }
+                            } catch (e) {
+                                // Skip malformed JSON
+                            }
+                        }
+                    }
+                }
+
+                // Add final message to history
+                if (accumulatedContent) {
+                    conversationHistory.push({
+                        role: 'assistant',
+                        content: accumulatedContent
+                    });
+                }
+            } catch (error) {
+                throw new Error(`Streaming error: ${error.message}`);
             }
         }
 
@@ -868,6 +965,7 @@
             const savedTopP = localStorage.getItem('llm_topP');
             const savedRepetitionPenalty = localStorage.getItem('llm_repetitionPenalty');
             const savedDoSample = localStorage.getItem('llm_doSample');
+            const savedStreamResponse = localStorage.getItem('llm_streamResponse');
 
             if (savedEndpoint) document.getElementById('endpoint').value = savedEndpoint;
             if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
@@ -877,6 +975,7 @@
             if (savedTopP) document.getElementById('topP').value = savedTopP;
             if (savedRepetitionPenalty) document.getElementById('repetitionPenalty').value = savedRepetitionPenalty;
             if (savedDoSample !== null) document.getElementById('doSample').checked = savedDoSample === 'true';
+            if (savedStreamResponse !== null) document.getElementById('streamResponse').checked = savedStreamResponse === 'true';
 
             addSystemMessage('Welcome! Configure your endpoint to start chatting.');
         });
@@ -912,6 +1011,10 @@
 
         document.getElementById('doSample').addEventListener('change', (e) => {
             localStorage.setItem('llm_doSample', e.target.checked);
+        });
+
+        document.getElementById('streamResponse').addEventListener('change', (e) => {
+            localStorage.setItem('llm_streamResponse', e.target.checked);
         });
     </script>
 </body>
